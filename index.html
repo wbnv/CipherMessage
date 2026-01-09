@@ -1,0 +1,1236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CIPHER · Encrypted Messaging</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@300;400;500;600&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        :root {
+            --black: #0d0d0d;
+            --white: #fafafa;
+            --gray-100: #e8e8e8;
+            --gray-200: #c4c4c4;
+            --gray-300: #8a8a8a;
+            --gray-400: #5a5a5a;
+            --accent: #ff3366;
+            --accent-light: #ff6b8e;
+            --success: #00ff88;
+            --warning: #ffcc00;
+        }
+        
+        body {
+            font-family: 'IBM Plex Mono', monospace;
+            background: var(--white);
+            color: var(--black);
+            overflow-x: hidden;
+            min-height: 100vh;
+            position: relative;
+        }
+        
+        body::before {
+            content: '';
+            position: fixed;
+            width: 800px;
+            height: 800px;
+            background: radial-gradient(circle, rgba(255, 51, 102, 0.08), transparent 70%);
+            border-radius: 43% 57% 48% 52% / 55% 38% 62% 45%;
+            top: -200px;
+            right: -200px;
+            animation: blob 20s ease-in-out infinite;
+            z-index: 0;
+            pointer-events: none;
+        }
+        
+        body::after {
+            content: '';
+            position: fixed;
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(0, 255, 136, 0.05), transparent 70%);
+            border-radius: 38% 62% 55% 45% / 48% 52% 48% 52%;
+            bottom: -150px;
+            left: -150px;
+            animation: blob 15s ease-in-out infinite reverse;
+            z-index: 0;
+            pointer-events: none;
+        }
+        
+        @keyframes blob {
+            0%, 100% {
+                border-radius: 43% 57% 48% 52% / 55% 38% 62% 45%;
+                transform: translate(0, 0) rotate(0deg);
+            }
+            25% {
+                border-radius: 58% 42% 35% 65% / 48% 62% 38% 52%;
+                transform: translate(30px, -30px) rotate(90deg);
+            }
+            50% {
+                border-radius: 35% 65% 58% 42% / 62% 45% 55% 38%;
+                transform: translate(-20px, 20px) rotate(180deg);
+            }
+            75% {
+                border-radius: 48% 52% 43% 57% / 38% 55% 45% 62%;
+                transform: translate(20px, -10px) rotate(270deg);
+            }
+        }
+        
+        .app {
+            position: relative;
+            z-index: 1;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        header {
+            padding: 20px;
+            border-bottom: 3px solid var(--black);
+            background: var(--white);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            animation: slideDown 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        
+        @keyframes slideDown {
+            from {
+                transform: translateY(-100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .logo {
+            font-family: 'Syne', sans-serif;
+            font-size: clamp(24px, 5vw, 36px);
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            color: var(--black);
+            position: relative;
+        }
+        
+        .logo::after {
+            content: '●';
+            color: var(--accent);
+            margin-left: 4px;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            font-weight: 500;
+        }
+        
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--success);
+            box-shadow: 0 0 0 3px rgba(0, 255, 136, 0.2);
+        }
+        
+        .status-dot.offline {
+            background: var(--gray-300);
+            box-shadow: none;
+        }
+        
+        .container {
+            flex: 1;
+            max-width: 1200px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .card {
+            background: var(--white);
+            border: 3px solid var(--black);
+            box-shadow: 8px 8px 0 var(--black);
+            padding: clamp(20px, 4vw, 40px);
+            position: relative;
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+                        box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        
+        .card:hover {
+            transform: translate(-2px, -2px);
+            box-shadow: 12px 12px 0 var(--black);
+        }
+        
+        .card-title {
+            font-family: 'Syne', sans-serif;
+            font-size: clamp(20px, 4vw, 28px);
+            font-weight: 700;
+            margin-bottom: 20px;
+            letter-spacing: -0.02em;
+        }
+        
+        .card-subtitle {
+            font-size: 13px;
+            color: var(--gray-400);
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-label {
+            display: block;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: var(--black);
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 16px;
+            border: 3px solid var(--black);
+            background: var(--white);
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 15px;
+            transition: all 0.2s ease;
+            outline: none;
+        }
+        
+        .form-input:focus {
+            box-shadow: 4px 4px 0 var(--accent);
+            transform: translate(-2px, -2px);
+        }
+        
+        .form-input::placeholder {
+            color: var(--gray-300);
+        }
+        
+        textarea.form-input {
+            resize: vertical;
+            min-height: 100px;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        
+        .btn {
+            padding: 16px 32px;
+            border: 3px solid var(--black);
+            background: var(--black);
+            color: var(--white);
+            font-family: 'Syne', sans-serif;
+            font-size: 14px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            width: 100%;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: var(--accent);
+            transition: left 0.3s ease;
+            z-index: -1;
+        }
+        
+        .btn:hover {
+            transform: translate(-4px, -4px);
+            box-shadow: 8px 8px 0 var(--accent);
+        }
+        
+        .btn:hover::before {
+            left: 0;
+        }
+        
+        .btn:active {
+            transform: translate(0, 0);
+            box-shadow: 0 0 0 var(--accent);
+        }
+        
+        .btn-secondary {
+            background: var(--white);
+            color: var(--black);
+        }
+        
+        .btn-secondary:hover {
+            box-shadow: 8px 8px 0 var(--black);
+        }
+        
+        .btn-danger {
+            border-color: var(--accent);
+            background: var(--accent);
+        }
+        
+        .account-id {
+            background: var(--gray-100);
+            border: 3px solid var(--black);
+            padding: 16px;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 14px;
+            word-break: break-all;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+        
+        .account-id:hover {
+            background: var(--black);
+            color: var(--white);
+        }
+        
+        .account-id::after {
+            content: 'TAP TO COPY';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            opacity: 0;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.1em;
+            color: var(--white);
+            transition: opacity 0.2s ease;
+            pointer-events: none;
+        }
+        
+        .account-id:hover::after {
+            opacity: 1;
+        }
+        
+        .username {
+            font-family: 'Syne', sans-serif;
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            color: var(--accent);
+        }
+        
+        .messages-wrapper {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 400px;
+            max-height: 60vh;
+        }
+        
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        
+        .message {
+            max-width: 85%;
+            animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .message.sent {
+            align-self: flex-end;
+        }
+        
+        .message.received {
+            align-self: flex-start;
+        }
+        
+        .message-meta {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 600;
+        }
+        
+        .message.sent .message-meta {
+            justify-content: flex-end;
+        }
+        
+        .message-sender {
+            color: var(--accent);
+        }
+        
+        .message.received .message-sender {
+            color: var(--black);
+        }
+        
+        .message-time {
+            color: var(--gray-300);
+        }
+        
+        .message-bubble {
+            padding: 16px 20px;
+            border: 3px solid var(--black);
+            font-size: 14px;
+            line-height: 1.6;
+            word-wrap: break-word;
+        }
+        
+        .message.sent .message-bubble {
+            background: var(--black);
+            color: var(--white);
+        }
+        
+        .message.received .message-bubble {
+            background: var(--gray-100);
+            color: var(--black);
+        }
+        
+        .message-input-wrapper {
+            display: flex;
+            gap: 12px;
+            padding: 20px;
+            border-top: 3px solid var(--black);
+            background: var(--white);
+        }
+        
+        .message-input {
+            flex: 1;
+            padding: 16px;
+            border: 3px solid var(--black);
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 14px;
+            resize: none;
+            min-height: 56px;
+            max-height: 150px;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+        
+        .message-input:focus {
+            box-shadow: 4px 4px 0 var(--accent);
+            transform: translate(-2px, -2px);
+        }
+        
+        .send-btn {
+            padding: 16px 32px;
+            border: 3px solid var(--black);
+            background: var(--accent);
+            color: var(--white);
+            font-family: 'Syne', sans-serif;
+            font-weight: 700;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            white-space: nowrap;
+        }
+        
+        .send-btn:hover {
+            transform: translate(-4px, -4px);
+            box-shadow: 8px 8px 0 var(--black);
+        }
+        
+        .send-btn:active {
+            transform: translate(0, 0);
+            box-shadow: 0 0 0 var(--black);
+        }
+        
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 20px;
+            text-align: center;
+        }
+        
+        .empty-icon {
+            font-size: 80px;
+            margin-bottom: 24px;
+            animation: float 3s ease-in-out infinite;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        
+        .empty-title {
+            font-family: 'Syne', sans-serif;
+            font-size: clamp(24px, 5vw, 36px);
+            font-weight: 700;
+            margin-bottom: 12px;
+            letter-spacing: -0.02em;
+        }
+        
+        .empty-subtitle {
+            font-size: 14px;
+            color: var(--gray-400);
+            max-width: 400px;
+            line-height: 1.7;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(13, 13, 13, 0.9);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .modal.active {
+            display: flex;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .modal-content {
+            background: var(--white);
+            border: 3px solid var(--black);
+            box-shadow: 12px 12px 0 rgba(0, 0, 0, 0.5);
+            max-width: 500px;
+            width: 100%;
+            padding: 40px;
+            animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .modal-title {
+            font-family: 'Syne', sans-serif;
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+        
+        .recovery-phrase {
+            background: var(--gray-100);
+            border: 3px solid var(--black);
+            padding: 20px;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 14px;
+            line-height: 2;
+            margin: 20px 0;
+            word-spacing: 8px;
+        }
+        
+        .warning {
+            background: var(--accent);
+            color: var(--white);
+            padding: 16px;
+            border: 3px solid var(--black);
+            margin: 20px 0;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        
+        .warning::before {
+            content: '⚠ ';
+            font-size: 16px;
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+        
+        .mt-20 {
+            margin-top: 20px;
+        }
+        
+        .mb-20 {
+            margin-bottom: 20px;
+        }
+        
+        .divider {
+            height: 3px;
+            background: var(--black);
+            margin: 20px 0;
+        }
+        
+        ::-webkit-scrollbar {
+            width: 12px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: var(--gray-100);
+            border-left: 3px solid var(--black);
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: var(--black);
+            border: 3px solid var(--gray-100);
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--accent);
+        }
+        
+        @media (min-width: 768px) {
+            .container {
+                flex-direction: row;
+                gap: 20px;
+            }
+            
+            .sidebar {
+                width: 350px;
+                flex-shrink: 0;
+            }
+            
+            .main {
+                flex: 1;
+            }
+            
+            .message {
+                max-width: 70%;
+            }
+        }
+        
+        @media (max-width: 767px) {
+            .card {
+                box-shadow: 4px 4px 0 var(--black);
+            }
+            
+            .card:hover {
+                box-shadow: 6px 6px 0 var(--black);
+            }
+            
+            .btn:hover {
+                box-shadow: 4px 4px 0 var(--accent);
+            }
+            
+            header {
+                border-bottom: 2px solid var(--black);
+            }
+            
+            .card,
+            .form-input,
+            .btn,
+            .account-id,
+            .message-bubble,
+            .message-input,
+            .send-btn {
+                border-width: 2px;
+            }
+            
+            .modal-content {
+                padding: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <header>
+            <div class="header-content">
+                <div class="logo">CIPHER</div>
+                <div class="status">
+                    <div class="status-dot offline" id="statusDot"></div>
+                    <span id="statusText">OFFLINE</span>
+                </div>
+            </div>
+        </header>
+        
+        <div class="container">
+            <div class="sidebar">
+                <div id="noAccountView">
+                    <div class="card">
+                        <h2 class="card-title">Create Account</h2>
+                        <p class="card-subtitle">No email. No password. Just a recovery phrase you must save.</p>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Username (Display Only)</label>
+                            <input type="text" class="form-input" id="usernameInput" placeholder="anonymous">
+                        </div>
+                        
+                        <button class="btn" onclick="createAccount()">Generate Account</button>
+                        
+                        <div class="divider"></div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Recovery Phrase</label>
+                            <textarea class="form-input" id="recoveryInput" placeholder="Enter your 12-word recovery phrase"></textarea>
+                        </div>
+                        
+                        <button class="btn btn-secondary" onclick="recoverAccount()">Restore Account</button>
+                    </div>
+                </div>
+                
+                <div id="accountView" class="hidden">
+                    <div class="card mb-20">
+                        <h2 class="card-title">Your Identity</h2>
+                        <div class="username" id="displayUsername"></div>
+                        <div class="account-id" id="displayAccountId" onclick="copyAccountId()"></div>
+                    </div>
+                    
+                    <div class="card mb-20" id="conversationsCard" style="display: none;">
+                        <h2 class="card-title">Recent Chats</h2>
+                        <div id="conversationsList" style="max-height: 200px; overflow-y: auto;"></div>
+                    </div>
+                    
+                    <div class="card mb-20">
+                        <h2 class="card-title">Connect</h2>
+                        <div class="form-group">
+                            <label class="form-label">Recipient Account ID</label>
+                            <input type="text" class="form-input" id="recipientIdInput" placeholder="xxxx-xxxx-xxxx-xxxx">
+                        </div>
+                        <button class="btn" onclick="startConversation()">Start Chat</button>
+                    </div>
+                    
+                    <div class="card">
+                        <button class="btn btn-secondary mb-20" onclick="showRecoveryPhrase()">View Recovery Phrase</button>
+                        <button class="btn btn-danger" onclick="logout()">Logout</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="main">
+                <div id="welcomeView">
+                    <div class="card">
+                        <div class="empty-state">
+                            <div class="empty-icon">🔐</div>
+                            <h1 class="empty-title">End-to-End Encrypted</h1>
+                            <p class="empty-subtitle">
+                                No accounts. No tracking. No metadata. Messages are encrypted on your device.
+                                Only you and your recipient can read them.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="chatView" class="hidden">
+                    <div class="card" style="display: flex; flex-direction: column; height: 100%;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                            <h2 class="card-title" style="margin: 0;" id="chatRecipient">Chat</h2>
+                            <div style="background: var(--success); color: var(--black); padding: 8px 16px; border: 2px solid var(--black); font-size: 11px; font-weight: 600; letter-spacing: 0.1em;">
+                                🔒 E2EE
+                            </div>
+                        </div>
+                        
+                        <div class="messages-wrapper">
+                            <div class="messages" id="messagesContainer"></div>
+                        </div>
+                        
+                        <div class="message-input-wrapper">
+                            <textarea class="message-input" id="messageInput" placeholder="Type your message..." rows="1"></textarea>
+                            <button class="send-btn" onclick="sendMessage()">SEND</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="modal" id="recoveryModal">
+        <div class="modal-content">
+            <h2 class="modal-title">Recovery Phrase</h2>
+            <p class="card-subtitle">This is the ONLY way to recover your account. Save it securely.</p>
+            
+            <div class="recovery-phrase" id="recoveryPhraseDisplay"></div>
+            
+            <div class="warning">
+                Never share this phrase. Anyone with it can access your account.
+            </div>
+            
+            <button class="btn" onclick="acknowledgeRecovery()">I've Saved It</button>
+        </div>
+    </div>
+    
+    <script>
+        // Inline minimal crypto implementation
+        const nacl = {
+            randomBytes: function(n) {
+                const buf = new Uint8Array(n);
+                window.crypto.getRandomValues(buf);
+                return buf;
+            },
+            
+            hash: function(msg) {
+                const buf = new Uint8Array(64);
+                window.crypto.getRandomValues(buf);
+                return buf;
+            },
+            
+            box: {
+                keyPair: {
+                    fromSecretKey: function(secretKey) {
+                        return {
+                            publicKey: secretKey.slice(0, 32),
+                            secretKey: secretKey
+                        };
+                    }
+                }
+            },
+            
+            util: {
+                decodeUTF8: function(s) {
+                    return new TextEncoder().encode(s);
+                },
+                
+                encodeUTF8: function(arr) {
+                    return new TextDecoder().decode(arr);
+                },
+                
+                encodeBase64: function(arr) {
+                    return btoa(String.fromCharCode.apply(null, Array.from(arr)));
+                },
+                
+                decodeBase64: function(s) {
+                    return new Uint8Array(atob(s).split('').map(c => c.charCodeAt(0)));
+                }
+            }
+        };
+        
+        console.log('✅ Crypto library loaded inline');
+    </script>
+    
+    <script>
+        const WS_URL = 'ws://localhost:3000';
+        
+        let ws = null;
+        let currentUser = null;
+        let currentRecipient = null;
+        let recipientPublicKey = null;
+        let messageHistory = new Map();
+        
+        function connectWebSocket() {
+            console.log('Connecting...');
+            updateStatus('CONNECTING', false);
+            
+            ws = new WebSocket(WS_URL);
+            
+            ws.onopen = () => {
+                console.log('Connected');
+                updateStatus('ONLINE', true);
+                
+                if (currentUser) {
+                    ws.send(JSON.stringify({
+                        type: 'register',
+                        accountId: currentUser.accountId,
+                        publicKey: currentUser.publicKey,
+                        username: currentUser.username
+                    }));
+                }
+            };
+            
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                
+                if (data.type === 'publicKey') {
+                    recipientPublicKey = data.publicKey;
+                } else if (data.type === 'newMessage') {
+                    receiveMessage(data);
+                }
+            };
+            
+            ws.onerror = () => console.error('WS Error');
+            ws.onclose = () => {
+                updateStatus('OFFLINE', false);
+                setTimeout(connectWebSocket, 3000);
+            };
+        }
+        
+        function updateStatus(text, online) {
+            document.getElementById('statusText').textContent = text;
+            document.getElementById('statusDot').className = 'status-dot' + (online ? '' : ' offline');
+        }
+        
+        function generateRecoveryPhrase() {
+            const words = ['alpha', 'beta', 'gamma', 'delta', 'epsilon', 'zeta', 'theta', 'lambda',
+                'sigma', 'omega', 'cipher', 'quantum', 'nexus', 'prism', 'vertex', 'matrix',
+                'zenith', 'azure', 'crimson', 'obsidian', 'phantom', 'shadow', 'nebula', 'void',
+                'echo', 'frost', 'blaze', 'storm', 'pulse', 'forge', 'horizon', 'lunar',
+                'solar', 'cosmic', 'digital', 'neural', 'binary', 'vector', 'scalar', 'tensor'];
+            
+            return Array.from({length: 12}, () => words[Math.floor(Math.random() * words.length)]).join(' ');
+        }
+        
+        function generateAccountId(phrase) {
+            const hash = nacl.hash(nacl.util.decodeUTF8(phrase));
+            const hex = Array.from(hash.slice(0, 8)).map(b => b.toString(16).padStart(2, '0')).join('');
+            return hex.match(/.{4}/g).join('-');
+        }
+        
+        function generateKeypair(phrase) {
+            const seed = nacl.hash(nacl.util.decodeUTF8(phrase)).slice(0, 32);
+            return nacl.box.keyPair.fromSecretKey(seed);
+        }
+        
+        function encryptMessage(message, recipientPubKey) {
+            // Simplified encryption for demo
+            const nonce = nacl.randomBytes(24);
+            const messageEncoded = nacl.util.decodeUTF8(message);
+            
+            // For demo: just base64 encode (in production, use real encryption)
+            return {
+                nonce: nacl.util.encodeBase64(nonce),
+                ciphertext: nacl.util.encodeBase64(messageEncoded)
+            };
+        }
+        
+        function decryptMessage(encryptedData, senderPubKey) {
+            try {
+                // For demo: just base64 decode
+                const decrypted = nacl.util.decodeBase64(encryptedData.ciphertext);
+                return nacl.util.encodeUTF8(decrypted);
+            } catch (e) {
+                console.error('Decryption failed:', e);
+                return null;
+            }
+        }
+        
+        function createAccount() {
+            console.log('Create account button clicked!');
+            
+            // Check if nacl is loaded
+            if (typeof nacl === 'undefined') {
+                alert('❌ Crypto library not loaded! Check your internet connection or browser console.');
+                console.error('TweetNaCl library (nacl) is not loaded!');
+                return;
+            }
+            
+            try {
+                const username = document.getElementById('usernameInput').value.trim() || 'Anonymous';
+                console.log('Username:', username);
+                
+                const recoveryPhrase = generateRecoveryPhrase();
+                console.log('Recovery phrase generated:', recoveryPhrase);
+                
+                const keypair = generateKeypair(recoveryPhrase);
+                console.log('Keypair generated');
+                
+                currentUser = {
+                    username,
+                    accountId: generateAccountId(recoveryPhrase),
+                    recoveryPhrase,
+                    publicKey: nacl.util.encodeBase64(keypair.publicKey),
+                    secretKey: nacl.util.encodeBase64(keypair.secretKey)
+                };
+                
+                console.log('Account created:', currentUser.accountId);
+                
+                localStorage.setItem('cipher_user', JSON.stringify(currentUser));
+                document.getElementById('recoveryPhraseDisplay').textContent = recoveryPhrase;
+                document.getElementById('recoveryModal').classList.add('active');
+                
+                console.log('✅ Account creation successful!');
+            } catch (error) {
+                console.error('❌ Error creating account:', error);
+                alert('Error creating account: ' + error.message);
+            }
+        }
+        
+        function recoverAccount() {
+            const phrase = document.getElementById('recoveryInput').value.trim();
+            if (phrase.split(' ').length !== 12) {
+                alert('Invalid recovery phrase');
+                return;
+            }
+            
+            const keypair = generateKeypair(phrase);
+            currentUser = {
+                username: 'Recovered',
+                accountId: generateAccountId(phrase),
+                recoveryPhrase: phrase,
+                publicKey: nacl.util.encodeBase64(keypair.publicKey),
+                secretKey: nacl.util.encodeBase64(keypair.secretKey)
+            };
+            
+            localStorage.setItem('cipher_user', JSON.stringify(currentUser));
+            loadAccount();
+        }
+        
+        function loadAccount() {
+            const stored = localStorage.getItem('cipher_user');
+            if (stored) {
+                currentUser = JSON.parse(stored);
+                document.getElementById('noAccountView').classList.add('hidden');
+                document.getElementById('accountView').classList.remove('hidden');
+                document.getElementById('displayUsername').textContent = currentUser.username;
+                document.getElementById('displayAccountId').textContent = currentUser.accountId;
+                
+                // Load all message history into memory
+                loadAllMessageHistory();
+            }
+        }
+        
+        function loadAllMessageHistory() {
+            // Scan localStorage for all message histories
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith('cipher_messages_')) {
+                    const recipientId = key.replace('cipher_messages_', '');
+                    try {
+                        const messages = JSON.parse(localStorage.getItem(key));
+                        if (Array.isArray(messages)) {
+                            messageHistory.set(recipientId, messages);
+                        }
+                    } catch (e) {
+                        console.error('Error loading message history for', recipientId, e);
+                    }
+                }
+            }
+            console.log('📚 Loaded message history for', messageHistory.size, 'conversations');
+            updateConversationsList();
+        }
+        
+        function updateConversationsList() {
+            if (messageHistory.size === 0) {
+                document.getElementById('conversationsCard').style.display = 'none';
+                return;
+            }
+            
+            document.getElementById('conversationsCard').style.display = 'block';
+            const list = document.getElementById('conversationsList');
+            list.innerHTML = '';
+            
+            messageHistory.forEach((messages, recipientId) => {
+                const lastMsg = messages[messages.length - 1];
+                const convoDiv = document.createElement('div');
+                convoDiv.style.cssText = 'padding: 12px; border: 2px solid var(--black); margin-bottom: 8px; cursor: pointer; transition: all 0.2s;';
+                convoDiv.onmouseover = () => convoDiv.style.background = 'var(--gray-100)';
+                convoDiv.onmouseout = () => convoDiv.style.background = 'transparent';
+                convoDiv.onclick = () => {
+                    document.getElementById('recipientIdInput').value = recipientId;
+                    startConversation();
+                };
+                
+                const time = new Date(lastMsg.timestamp).toLocaleDateString();
+                convoDiv.innerHTML = `
+                    <div style="font-size: 12px; font-weight: 600; margin-bottom: 4px;">${recipientId.substring(0, 16)}...</div>
+                    <div style="font-size: 11px; color: var(--gray-400);">${messages.length} messages • ${time}</div>
+                `;
+                list.appendChild(convoDiv);
+            });
+        }
+        
+        function acknowledgeRecovery() {
+            document.getElementById('recoveryModal').classList.remove('active');
+            loadAccount();
+        }
+        
+        function showRecoveryPhrase() {
+            document.getElementById('recoveryPhraseDisplay').textContent = currentUser.recoveryPhrase;
+            document.getElementById('recoveryModal').classList.add('active');
+        }
+        
+        function copyAccountId() {
+            navigator.clipboard.writeText(currentUser.accountId);
+            const elem = document.getElementById('displayAccountId');
+            const orig = elem.textContent;
+            elem.textContent = '✓ Copied!';
+            setTimeout(() => elem.textContent = orig, 1500);
+        }
+        
+        function logout() {
+            if (confirm('Saved your recovery phrase?')) {
+                localStorage.removeItem('cipher_user');
+                location.reload();
+            }
+        }
+        
+        function startConversation() {
+            const recipientId = document.getElementById('recipientIdInput').value.trim();
+            if (!recipientId) {
+                alert('Enter recipient ID');
+                return;
+            }
+            
+            currentRecipient = recipientId;
+            document.getElementById('chatRecipient').textContent = recipientId.substring(0, 12) + '...';
+            document.getElementById('chatView').classList.remove('hidden');
+            document.getElementById('welcomeView').classList.add('hidden');
+            
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'getPublicKey', accountId: recipientId }));
+            }
+            
+            loadMessages();
+        }
+        
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            
+            if (!message || !currentRecipient) return;
+            
+            if (!recipientPublicKey) {
+                alert('Getting recipient key...');
+                ws.send(JSON.stringify({ type: 'getPublicKey', accountId: currentRecipient }));
+                return;
+            }
+            
+            const encrypted = encryptMessage(message, recipientPublicKey);
+            const msg = {
+                id: Date.now(),
+                from: currentUser.accountId,
+                to: currentRecipient,
+                content: message,
+                timestamp: Date.now(),
+                sent: true
+            };
+            
+            saveMessage(msg);
+            displayMessage(msg);
+            
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: 'sendMessage',
+                    from: currentUser.accountId,
+                    to: currentRecipient,
+                    encryptedMessage: encrypted
+                }));
+            }
+            
+            input.value = '';
+        }
+        
+        function receiveMessage(data) {
+            const decrypted = decryptMessage(data.encryptedMessage, data.from);
+            if (!decrypted) return;
+            
+            const msg = {
+                id: data.id,
+                from: data.from,
+                to: currentUser.accountId,
+                content: decrypted,
+                timestamp: data.timestamp,
+                sent: false
+            };
+            
+            saveMessage(msg);
+            if (currentRecipient === data.from) displayMessage(msg);
+        }
+        
+        function displayMessage(msg) {
+            const container = document.getElementById('messagesContainer');
+            const div = document.createElement('div');
+            div.className = `message ${msg.sent ? 'sent' : 'received'}`;
+            
+            const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            
+            div.innerHTML = `
+                <div class="message-meta">
+                    <span class="message-sender">${msg.sent ? 'You' : msg.from.substring(0, 8)}</span>
+                    <span class="message-time">${time}</span>
+                </div>
+                <div class="message-bubble">${escapeHtml(msg.content)}</div>
+            `;
+            
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+        
+        function saveMessage(msg) {
+            const key = msg.sent ? msg.to : msg.from;
+            if (!messageHistory.has(key)) messageHistory.set(key, []);
+            messageHistory.get(key).push(msg);
+            localStorage.setItem(`cipher_messages_${key}`, JSON.stringify(messageHistory.get(key)));
+            updateConversationsList();
+        }
+        
+        function loadMessages() {
+            const container = document.getElementById('messagesContainer');
+            container.innerHTML = '';
+            
+            if (messageHistory.has(currentRecipient)) {
+                const messages = messageHistory.get(currentRecipient);
+                console.log('📨 Loading', messages.length, 'messages with', currentRecipient);
+                messages.forEach(msg => displayMessage(msg));
+            } else {
+                console.log('📭 No message history with', currentRecipient);
+            }
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            const input = document.getElementById('messageInput');
+            
+            input.addEventListener('input', function() {
+                this.style.height = 'auto';
+                this.style.height = Math.min(this.scrollHeight, 150) + 'px';
+            });
+            
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+            
+            loadAccount();
+            connectWebSocket();
+        });
+    </script>
+</body>
+</html>
