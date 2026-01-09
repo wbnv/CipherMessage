@@ -1168,6 +1168,18 @@
         }
         
         function displayMessage(msg) {
+            // Only display message if it's from/to the current conversation
+            if (currentRecipient) {
+                const isFromCurrentRecipient = msg.from === currentRecipient;
+                const isToCurrentRecipient = msg.to === currentRecipient;
+                
+                if (!isFromCurrentRecipient && !isToCurrentRecipient) {
+                    // Message is from someone else, don't display it
+                    console.log('📨 Message from', msg.from, '- not current conversation, not displaying');
+                    return;
+                }
+            }
+            
             const container = document.getElementById('messagesContainer');
             const div = document.createElement('div');
             div.className = `message ${msg.sent ? 'sent' : 'received'}`;
